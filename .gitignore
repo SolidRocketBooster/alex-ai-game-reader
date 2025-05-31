@@ -1,0 +1,26 @@
+# General
+__pycache__/
+*.py[cod]
+*.swp
+.DS_Store
+.idea/
+.vscode/
+
+# Python virtual env
+.venv/
+env/
+venv/
+.env/
+
+# Models & data
+models/**
+!models/README.md
+
+# Builds
+build/
+dist/
+*.egg-info/
+
+# Docker
+*.log
+docker-compose.override.yml

@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+websockets
+paddleocr==3.0.0
+langdetect
+torch
+torchaudio
+TTS
+redis

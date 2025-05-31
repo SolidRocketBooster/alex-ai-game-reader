@@ -1,0 +1,8 @@
+dxcam
+mss
+pillow
+websocket-client
+sounddevice
+keyboard
+pyqt6
+pystray
