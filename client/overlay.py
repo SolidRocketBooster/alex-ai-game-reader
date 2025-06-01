@@ -4,11 +4,12 @@ from PIL import Image
 
 
 class CropDialog(QtWidgets.QDialog):
+    """Modal window with QRubberBandem; returns QRect."""
 
     def __init__(self, screenshot: Image.Image):
         super().__init__(flags=QtCore.Qt.WindowType.FramelessWindowHint)
         self.setCursor(QtCore.Qt.CursorShape.CrossCursor)
-        self.setModal(True)
+        self.setModal(True)                       # blokuje wywołującego
         self.setWindowState(QtCore.Qt.WindowState.WindowActive)
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowType.WindowStaysOnTopHint)
         self.setGeometry(QtWidgets.QApplication.primaryScreen().geometry())
@@ -33,10 +34,11 @@ class CropDialog(QtWidgets.QDialog):
             self.band.setGeometry(QtCore.QRect(self.origin, ev.pos()).normalized())
 
     def mouseReleaseEvent(self, ev):
-        self.accept()
+        self.accept()               # zamyka exec()
 
     # -- public -------------------------------------------------------------
     def get_crop_rect(self) -> QtCore.QRect | None:
+        """Shows dialog and returns QRect or None, if area <10 px."""
         if self.exec() == QtWidgets.QDialog.DialogCode.Accepted:
             r = self.band.geometry()
             if r.width() >= 10 and r.height() >= 10:

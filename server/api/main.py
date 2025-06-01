@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
+import httpx
 
 app = FastAPI(title="alex-ai-game-reader API")
 
@@ -8,6 +9,7 @@ async def ping():
     return {"msg": "pong"}
 
 @app.post("/read")
-async def read_image(img: UploadFile = File(...)):
-    data = await img.read()
-    return JSONResponse({"filename": img.filename, "bytes": len(data)})
+async def read(img: UploadFile = File(...)):
+    async with httpx.AsyncClient() as c:
+        resp = await c.post("http://ocr:8200/ocr", files={"img": (img.filename, await img.read())})
+    return resp.json()

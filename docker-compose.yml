@@ -1,32 +1,34 @@
 version: "3.9"
 
 services:
-  #  ocr:
-  #    build: ./server/ocr
-  #    image: alex-ocr:latest
-  #    environment:
-  #      - NVIDIA_VISIBLE_DEVICES=all
-  #    deploy:
-  #      resources:
-  #        reservations:
-  #          devices:
-  #            - driver: nvidia
-  #              count: all
-  #              capabilities: [gpu]
-  #
-  #  tts:
-  #    build: ./server/tts
-  #    image: alex-tts:latest
-  #    environment:
-  #      - NVIDIA_VISIBLE_DEVICES=all
-  #    deploy:
-  #      resources:
-  #        reservations:
-  #          devices:
-  #            - driver: nvidia
-  #              count: all
-  #              capabilities: [gpu]
-  #
+  ocr:
+    build:
+      context: .
+      dockerfile: server/ocr/Dockerfile
+    image: alex-ocr:latest
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+#  tts:
+#    build: ./server/tts
+#    image: alex-tts:latest
+#    environment:
+#      - NVIDIA_VISIBLE_DEVICES=all
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              count: all
+#              capabilities: [gpu]
+#
   api:
     build:
       context: .
@@ -34,6 +36,6 @@ services:
     image: alex-api:latest
     ports:
       - "8080:8080"
-        #    depends_on:
-        #      - ocr
-        #      - tts
+    depends_on:
+      - ocr
+#      - tts
