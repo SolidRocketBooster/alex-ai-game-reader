@@ -1,30 +1,65 @@
-import time, tempfile, pathlib, keyboard
-import dxcam
+import sys, time, tempfile, pathlib
+import mss
 from PIL import Image
-from overlay import RectOverlay
+from PyQt6 import QtCore, QtGui, QtWidgets
 
-HOTKEY = "ctrl+shift+r"
-OUTPUT_DIR = pathlib.Path(tempfile.gettempdir()) / "alex_reader"
-OUTPUT_DIR.mkdir(exist_ok=True)
-cam = dxcam.create(output_idx=0, output_color="BGRA")
+from overlay import CropDialog
 
-def capture_rect():
-    overlay = RectOverlay()
-    rect = overlay.exec_()
-    if rect is None:
-        return
-    x, y, w, h = rect
-    frame = cam.grab(region=(x, y, x + w, y + h))
-    if frame is None:
-        print("[capture] No frame")
-        return
-    # BGRA numpy -> RGB PIL
-    img = Image.fromarray(frame[..., :3][..., ::-1])
-    ts = int(time.time() * 1000)
-    path = OUTPUT_DIR / f"cap-{ts}.png"
-    img.save(path)
-    print(f"[capture] Saved {path}")
+OUT_DIR = pathlib.Path(tempfile.gettempdir()) / "alex_reader"
+OUT_DIR.mkdir(exist_ok=True)
 
-keyboard.add_hotkey(HOTKEY, capture_rect)
-print(f"[capture] Ready. Press {HOTKEY}. Esc to quit.")
-keyboard.wait("esc")
+
+class SowaWindow(QtWidgets.QMainWindow):
+    def __init__(self):
+        super().__init__(windowTitle="🦉 Sówka – Screen Grab")
+        self.setFixedSize(260, 80)
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowType.WindowStaysOnTopHint)
+
+        lab = QtWidgets.QLabel("Focus here →\nCtrl + Shift + R = capture", self)
+        lab.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.setCentralWidget(lab)
+
+        shortcut = QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Shift+R"), self)
+        shortcut.activated.connect(self.capture_full)
+
+    def capture_full(self):
+        with mss.mss() as sct:
+            raw = sct.grab(sct.monitors[0])
+        Image.frombytes("RGB", raw.size, raw.rgb).save(
+            OUT_DIR / f"cap-{int(time.time()*1000)}.png" )
+        print("🦉  Full-screen PNG zapisany.")
+
+    def capture(self):
+        with mss.mss() as sct:
+            raw = sct.grab(sct.monitors[0])
+        full = Image.frombytes("RGB", raw.size, raw.rgb)
+
+        dlg = CropDialog(full)
+        rect = dlg.get_crop_rect()
+        if rect is None:
+            return
+
+        x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
+        full.crop((x, y, x + w, y + h)).save(
+            OUT_DIR / f"cap-{int(time.time()*1000)}.png"
+        )
+        QtWidgets.QMessageBox.information(
+            self, "Sówka",
+            f"PNG {w}×{h}px zapisany w:\n{OUT_DIR}",
+            QtWidgets.QMessageBox.StandardButton.Ok
+        )
+
+
+def main():
+    app = QtWidgets.QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
+
+    win = SowaWindow()
+    win.show()
+
+    print("🦉  Kliknij okno Sówki, potem Ctrl+Shift+R.  Zamknij okno by wyjść.")
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()

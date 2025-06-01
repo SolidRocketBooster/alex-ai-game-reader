@@ -1,45 +1,44 @@
-from PyQt6 import QtWidgets, QtGui, QtCore
-import sys
+from PyQt6 import QtCore, QtGui, QtWidgets
+from PIL.ImageQt import ImageQt
+from PIL import Image
 
-class RectOverlay(QtWidgets.QWidget):
-    """Transparent full‑screen widget to grab a rectangle."""
 
-    def __init__(self):
-        super().__init__(flags=QtCore.Qt.WindowType.FramelessWindowHint | QtCore.Qt.WindowType.WindowStaysOnTopHint)
-        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setWindowOpacity(0.3)
-        self.setGeometry(QtWidgets.QApplication.primaryScreen().geometry())
-        self.origin = None
-        self.rect = QtCore.QRect()
+class CropDialog(QtWidgets.QDialog):
+
+    def __init__(self, screenshot: Image.Image):
+        super().__init__(flags=QtCore.Qt.WindowType.FramelessWindowHint)
         self.setCursor(QtCore.Qt.CursorShape.CrossCursor)
+        self.setModal(True)
+        self.setWindowState(QtCore.Qt.WindowState.WindowActive)
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowType.WindowStaysOnTopHint)
+        self.setGeometry(QtWidgets.QApplication.primaryScreen().geometry())
 
-    def exec_(self):
-        app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
-        self.showFullScreen()
-        result = app.exec()
-        return self._rect_tuple() if result == 0 else None
+        # tło = zamrożony screenshot
+        self.bg = QtGui.QPixmap.fromImage(ImageQt(screenshot))
+        self.band = QtWidgets.QRubberBand(QtWidgets.QRubberBand.Shape.Rectangle, self)
+        self.origin = QtCore.QPoint()
 
-    def _rect_tuple(self):
-        r = self.rect.normalized()
-        return (r.x(), r.y(), r.width(), r.height()) if r.width() and r.height() else None
+    # -- events -------------------------------------------------------------
+    def paintEvent(self, _):
+        painter = QtGui.QPainter(self)
+        painter.drawPixmap(self.rect(), self.bg)
 
-    # Event handlers
     def mousePressEvent(self, ev):
         self.origin = ev.pos()
-        self.rect = QtCore.QRect(self.origin, QtCore.QSize())
+        self.band.setGeometry(QtCore.QRect(self.origin, QtCore.QSize()))
+        self.band.show()
 
     def mouseMoveEvent(self, ev):
-        if self.origin:
-            self.rect = QtCore.QRect(self.origin, ev.pos()).normalized()
-            self.update()
+        if self.band.isVisible():
+            self.band.setGeometry(QtCore.QRect(self.origin, ev.pos()).normalized())
 
     def mouseReleaseEvent(self, ev):
-        self.close()  # triggers app.exec() exit
+        self.accept()
 
-    def paintEvent(self, ev):
-        if self.rect and self.rect.width() and self.rect.height():
-            painter = QtGui.QPainter(self)
-            pen = QtGui.QPen(QtGui.QColor("red"))
-            pen.setWidth(2)
-            painter.setPen(pen)
-            painter.drawRect(self.rect)
+    # -- public -------------------------------------------------------------
+    def get_crop_rect(self) -> QtCore.QRect | None:
+        if self.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+            r = self.band.geometry()
+            if r.width() >= 10 and r.height() >= 10:
+                return r.normalized()
+        return None
