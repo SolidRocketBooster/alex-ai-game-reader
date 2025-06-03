@@ -4,7 +4,7 @@ from PIL import Image
 import numpy as np, io
 
 app = FastAPI()
-ocr = PaddleOCR(use_angle_cls=True, lang="en")
+ocr = PaddleOCR(use_angle_cls=True, lang="pl")
 
 @app.post("/ocr")
 async def run_ocr(img: UploadFile = File(...)):

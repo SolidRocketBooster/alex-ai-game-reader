@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   ocr:
     build:
@@ -15,20 +13,21 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+  tts:
+    build:
+      context: .
+      dockerfile: server/tts/Dockerfile
+    image: alex-tts:latest
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
-#  tts:
-#    build: ./server/tts
-#    image: alex-tts:latest
-#    environment:
-#      - NVIDIA_VISIBLE_DEVICES=all
-#    deploy:
-#      resources:
-#        reservations:
-#          devices:
-#            - driver: nvidia
-#              count: all
-#              capabilities: [gpu]
-#
   api:
     build:
       context: .
@@ -38,4 +37,4 @@ services:
       - "8080:8080"
     depends_on:
       - ocr
-#      - tts
+      - tts

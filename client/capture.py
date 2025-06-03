@@ -1,9 +1,13 @@
-import sys, time, tempfile, requests, json, pathlib
+import sys, time, tempfile, requests, json, pathlib, io
 import mss
 from PIL import Image
 from PyQt6 import QtCore, QtGui, QtWidgets
 from tqdm import tqdm
 from overlay import CropDialog
+from pydub import AudioSegment
+from pydub.playback import play
+from pydub import AudioSegment
+import simpleaudio as sa
 
 OUT_DIR = pathlib.Path(tempfile.gettempdir()) / "alex_reader"
 OUT_DIR.mkdir(exist_ok=True)
@@ -27,8 +31,17 @@ class SowaWindow(QtWidgets.QMainWindow):
             raw = sct.grab(sct.monitors[0])
         path = OUT_DIR / f"cap-{int(time.time()*1000)}.png"
         Image.frombytes("RGB", raw.size, raw.rgb).save(path)
-        print("🦉  Full-screen PNG saved.")
-        self.send_to_api(path)
+        print("Full-screen PNG saved.")
+        self.send_and_play(path)
+
+    def play_audio(self, seg: AudioSegment):  # +++
+        play_obj = sa.play_buffer(
+            seg.raw_data,
+            num_channels=seg.channels,
+            bytes_per_sample=seg.sample_width,
+            sample_rate=seg.frame_rate
+        )
+        play_obj.wait_done()
 
     def capture(self):
         with mss.mss() as sct:
@@ -50,30 +63,24 @@ class SowaWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.StandardButton.Ok
         )
 
-    def send_to_api(self, png: pathlib.Path):
-        """Sends PNG to http://192.168.0.55:8080/read and return OCR."""
-        url = "http://192.168.0.55:8080/read"
-        try:
-            with png.open("rb") as fh:
-                files = {"img": (png.name, fh, "image/png")}
-                with requests.post(url, files=files, stream=True) as resp:
-                    resp.raise_for_status()
-                    # jeśli odpowiedź jest spora, pokaż progress bar
-                    total = int(resp.headers.get("Content-Length", 0))
-                    data = resp.iter_content(chunk_size=8192)
-                    body = b"".join(tqdm(data, total=total//8192 or None, unit="chunk"))
-            result = json.loads(body)
-            print("\n——— OCR result ———")
-            for r in result.get("results", []):
-                print(f"{r['text']!r}  (p={r['prob']:.2f})")
-        except requests.RequestException as e:
-            print("[!] HTTP error:", e)
-        except json.JSONDecodeError:
-            print("[!] Wrong JSON from server:", body[:200])
+    def send_and_play(self, png_path: pathlib.Path, lang="pl"):
+        with png_path.open("rb") as fh:
+            resp = requests.post(
+                "http://192.168.0.55:8080/speak",
+                files={"img": (png_path.name, fh)},
+                data={"lang": lang},
+                timeout=120,
+            )
+
+        if resp.ok:
+            audio = AudioSegment.from_file(io.BytesIO(resp.content), format="wav")
+            self.play_audio(audio) 
+        else:
+            print("TTS error:", resp.text)
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
-    app.setQuitOnLastWindowClosed(False)   # zamknięcie okna → koniec
+    app.setQuitOnLastWindowClosed(False)
 
     win = SowaWindow()
     win.show()
